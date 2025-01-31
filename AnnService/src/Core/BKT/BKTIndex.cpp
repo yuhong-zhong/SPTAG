@@ -14,6 +14,23 @@ namespace SPTAG
     template <typename T>
     thread_local std::unique_ptr<T> COMMON::ThreadLocalWorkSpaceFactory<T>::m_workspace;
 
+    void COMMON::ShuffleAndSample(std::vector<SizeType>& indices, const SizeType first, const SizeType last, int samples, int threads) {
+        int num_samples_per_thread = (samples + threads - 1) / threads;
+#pragma omp parallel for num_threads(threads)
+        for (int tid = 0; tid < threads; tid++) {
+            std::mt19937_64 thread_rg(tid);
+            for (int i = tid * num_samples_per_thread; i < std::min((tid + 1) * num_samples_per_thread, samples); i++) {
+                uint64_t cur_num_indices = (last - first) / samples;
+                if (i <= (last - first) % samples) cur_num_indices++;
+                for (uint64_t j = 0; j < cur_num_indices - 1; j++) {
+                    uint64_t idx_first = first + i + j * samples;
+                    uint64_t idx_second = first + i + ((thread_rg() % (cur_num_indices - j)) + j) * samples;
+                    std::swap(indices[idx_first], indices[idx_second]);
+                }
+            }
+        }
+    }
+
     namespace BKT
     {
 

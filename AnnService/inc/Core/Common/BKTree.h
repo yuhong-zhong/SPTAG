@@ -9,6 +9,7 @@
 #include <vector>
 #include <mutex>
 #include <shared_mutex>
+#include <signal.h>
 #include "inc/Core/VectorIndex.h"
 
 #include "CommonUtils.h"
@@ -338,6 +339,8 @@ namespace SPTAG
             return lambda;
         }
 
+        void ShuffleAndSample(std::vector<SizeType>& indices, const SizeType first, const SizeType last, int samples, int threads);
+
         template <typename T, typename R>
         float TryClustering(const Dataset<T>& data,
             std::vector<SizeType>& indices, const SizeType first, const SizeType last,
@@ -350,13 +353,21 @@ namespace SPTAG
             float currDiff, currDist, minClusterDist = MaxDist;
             int noImprovement = 0;
             float originalLambda = COMMON::Utils::GetBase<T>() * COMMON::Utils::GetBase<T>() / lambdaFactor / (batchEnd - first);
+            int actual_samples = min(samples, last - first);
+
             for (int iter = 0; iter < 100; iter++) {
                 std::memcpy(args.centers, args.newTCenters, sizeof(T)*args._K*args._D);
-                std::shuffle(indices.begin() + first, indices.begin() + last, rg);
+
+                // SPTAGLIB_LOG(Helper::LogLevel::LL_Info, "ShuffleAndSample, indices size:%ld, first:%ld, last:%ld, samples:%d, threads:%d\n", indices.size(), first, last, actual_samples, args._T);
+                if (last - first > 1000000ul)
+                    ShuffleAndSample(indices, first, last, actual_samples, args._T);
+                else
+                    std::shuffle(indices.begin() + first, indices.begin() + last, rg);
 
                 args.ClearCenters();
                 args.ClearCounts();
                 args.ClearDists(-MaxDist);
+                // SPTAGLIB_LOG(Helper::LogLevel::LL_Info, "KmeansAssign, indices size:%ld, first:%ld, last:%ld, samples:%d, threads:%d\n", indices.size(), first, last, actual_samples, args._T);
                 currDist = KmeansAssign<T, R>(data, indices, first, batchEnd, args, true, min(adjustedLambda, originalLambda));
                 std::memcpy(args.counts, args.newCounts, sizeof(SizeType) * args._K);
 
