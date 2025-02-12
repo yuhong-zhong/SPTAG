@@ -7,6 +7,7 @@
 #include <chrono>
 #include "inc/Core/ResultIterator.h"
 #include "inc/Core/SPANN/SPANNResultIterator.h"
+#include <fstream>
 #pragma warning(disable:4242)  // '=' : conversion from 'int' to 'short', possible loss of data
 #pragma warning(disable:4244)  // '=' : conversion from 'int' to 'short', possible loss of data
 #pragma warning(disable:4127)  // conditional expression is constant
@@ -201,7 +202,10 @@ namespace SPTAG
                 p_queryResults = new COMMON::QueryResultSet<T>((const T*)p_query.GetTarget(), m_options.m_searchInternalResultNum);
 
             m_index->SearchIndex(*p_queryResults);
-            
+
+            std::ofstream outfile;
+            outfile.open("_spann_trace.txt", std::ios_base::app);
+
             if (m_extraSearcher != nullptr) {
                 auto workSpace = m_workSpaceFactory->GetWorkSpace();
                 if (!workSpace) {
@@ -234,6 +238,11 @@ namespace SPTAG
                         continue;
                     workSpace->m_postingIDs.emplace_back(postingID);
                 }
+
+                for (int postingID : workSpace->m_postingIDs) {
+                    outfile << postingID << " ";
+                }
+                outfile << std::endl;
 
                 p_queryResults->Reverse();
                 m_extraSearcher->SearchIndex(workSpace.get(), *p_queryResults, m_index, nullptr);
